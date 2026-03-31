@@ -40,8 +40,7 @@ async fn check_all_active_alerts(
     fetcher: &Arc<dyn PriceFetcher>,
     tx: &broadcast::Sender<AlertEvent>,
 ) -> Result<()> {
-    let alerts: Vec<Alert> = sqlx::query_as!(
-        Alert,
+    let alerts = sqlx::query_as::<_, Alert>(
         "SELECT * FROM alerts WHERE status = 'active'"
     )
     .fetch_all(pool)
@@ -79,13 +78,12 @@ async fn check_single_alert(
 
     let now = Utc::now().to_rfc3339();
 
-    // Record price history
-    sqlx::query!(
-        "INSERT INTO price_history (alert_id, price, checked_at) VALUES (?, ?, ?)",
-        alert.id,
-        result.price,
-        now
+    sqlx::query(
+        "INSERT INTO price_history (alert_id, price, checked_at) VALUES (?, ?, ?)"
     )
+    .bind(alert.id)
+    .bind(result.price)
+    .bind(&now)
     .execute(pool)
     .await?;
 
@@ -93,14 +91,14 @@ async fn check_single_alert(
     let new_status = if triggered { "triggered" } else { "active" };
     let notified_at: Option<&str> = if triggered { Some(&now) } else { None };
 
-    sqlx::query!(
-        "UPDATE alerts SET current_price = ?, last_checked = ?, status = ?, notified_at = COALESCE(notified_at, ?) WHERE id = ?",
-        result.price,
-        now,
-        new_status,
-        notified_at,
-        alert.id
+    sqlx::query(
+        "UPDATE alerts SET current_price = ?, last_checked = ?, status = ?, notified_at = COALESCE(notified_at, ?) WHERE id = ?"
     )
+    .bind(result.price)
+    .bind(&now)
+    .bind(new_status)
+    .bind(notified_at)
+    .bind(alert.id)
     .execute(pool)
     .await?;
 
@@ -124,7 +122,6 @@ async fn check_single_alert(
             target_price: alert.target_price,
             current_price: result.price,
         };
-        // Ignore send errors (no active SSE subscribers)
         let _ = tx.send(event);
     }
 

@@ -4,6 +4,7 @@ use axum::{
     routing::{delete, get, post},
     Router,
 };
+use sqlx::SqlitePool;
 use tokio::sync::broadcast;
 use tower_http::cors::{Any, CorsLayer};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
@@ -18,6 +19,13 @@ use poller::{
     price_fetcher::PriceFetcher,
     providers::{kiwi::KiwiProvider, mock::MockProvider},
 };
+
+/// Shared application state passed to every route handler.
+#[derive(Clone)]
+pub struct AppState {
+    pub pool: SqlitePool,
+    pub tx: broadcast::Sender<AlertEvent>,
+}
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -68,29 +76,21 @@ async fn main() -> anyhow::Result<()> {
         tx.clone(),
     ));
 
+    let state = AppState { pool, tx };
+
     // CORS
     let cors = CorsLayer::new()
         .allow_origin(Any)
         .allow_methods(Any)
         .allow_headers(Any);
 
-    // Router
     let app = Router::new()
         .route("/alerts", post(routes::alerts::create_alert))
         .route("/alerts", get(routes::alerts::list_alerts))
         .route("/alerts/:id", delete(routes::alerts::delete_alert))
         .route("/events", get(routes::sse::sse_handler))
-        .with_state(pool)
-        // SSE route needs the broadcast sender as state — override with a nested router
-        .layer(cors);
-
-    // We need two different state types; use a nested router for SSE
-    let app = Router::new()
-        .route("/events", get(routes::sse::sse_handler).with_state(tx))
-        .route("/alerts", post(routes::alerts::create_alert).with_state(pool.clone()))
-        .route("/alerts", get(routes::alerts::list_alerts).with_state(pool.clone()))
-        .route("/alerts/:id", delete(routes::alerts::delete_alert).with_state(pool.clone()))
-        .layer(cors);
+        .layer(cors)
+        .with_state(state);
 
     let port = std::env::var("PORT").unwrap_or_else(|_| "8080".to_string());
     let addr = format!("0.0.0.0:{port}");

@@ -5,16 +5,13 @@ use axum::{
         IntoResponse,
     },
 };
-use futures::stream::{self, StreamExt};
-use tokio::sync::broadcast;
+use futures::StreamExt;
 use tokio_stream::wrappers::BroadcastStream;
 
-use crate::models::AlertEvent;
+use crate::AppState;
 
-pub async fn sse_handler(
-    State(tx): State<broadcast::Sender<AlertEvent>>,
-) -> impl IntoResponse {
-    let rx = tx.subscribe();
+pub async fn sse_handler(State(state): State<AppState>) -> impl IntoResponse {
+    let rx = state.tx.subscribe();
     let stream = BroadcastStream::new(rx).filter_map(|msg| async move {
         match msg {
             Ok(event) => {
