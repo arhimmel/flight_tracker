@@ -1,0 +1,32 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    volumes:
+      - db_data:/app/data
+    environment:
+      DATABASE_URL: sqlite://data/tracker.db
+      PORT: 8080
+      POLL_INTERVAL_MINS: 30
+      PRICE_PROVIDER: mock
+      # PRICE_PROVIDER: kiwi
+      # KIWI_API_KEY: your_key_here
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8080
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  db_data:
