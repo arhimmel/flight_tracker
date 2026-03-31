@@ -37,22 +37,24 @@ flight_tracker/
 
 ## Running
 
-### Docker (recommended)
+### Podman (recommended)
 
 ```bash
-docker compose up --build
+podman compose up --build
 ```
 
 - Frontend: http://localhost:3000
 - Backend:  http://localhost:8080
 
-The SQLite database is persisted in a named Docker volume (`db_data`).
+The SQLite database is persisted in a named Podman volume (`db_data`).
 
 To use a real price provider, edit the `backend` service environment in `docker-compose.yml`:
 ```yaml
 PRICE_PROVIDER: kiwi
 KIWI_API_KEY: your_key_here
 ```
+
+> Podman 4.x+ includes `podman compose` built-in. If you are on an older version, install `podman-compose` via pip: `pip install podman-compose`.
 
 ### Local Development
 
