@@ -11,3 +11,4 @@ frontend/.next/
 .env.local
 
 .idea
+.claude

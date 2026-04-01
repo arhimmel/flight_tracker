@@ -21,7 +21,5 @@ WORKDIR /app
 COPY --from=builder /app/target/release/server .
 COPY --from=builder /app/migrations ./migrations
 
-RUN mkdir -p data
-
 EXPOSE 8080
-CMD ["./server"]
+CMD ["sh", "-c", "mkdir -p data && ./server"]
