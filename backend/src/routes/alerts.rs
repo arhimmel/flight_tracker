@@ -4,19 +4,24 @@ use axum::{
     Json,
 };
 use chrono::Utc;
-use sqlx::Row;
 
-use crate::{models::{Alert, CreateAlertRequest}, AppState};
+use crate::{
+    auth::AuthUser,
+    models::{Alert, CreateAlertRequest},
+    AppState,
+};
 
 pub async fn create_alert(
     State(state): State<AppState>,
+    user: AuthUser,
     Json(req): Json<CreateAlertRequest>,
 ) -> Result<(StatusCode, Json<Alert>), (StatusCode, String)> {
     let now = Utc::now().to_rfc3339();
 
     let id: i64 = sqlx::query(
-        "INSERT INTO alerts (flight_number, flight_date, origin, destination, target_price, status, created_at)
-         VALUES (?, ?, ?, ?, ?, 'active', ?)"
+        "INSERT INTO alerts \
+         (flight_number, flight_date, origin, destination, target_price, status, created_at, user_id) \
+         VALUES (?, ?, ?, ?, ?, 'active', ?, ?)",
     )
     .bind(&req.flight_number)
     .bind(&req.flight_date)
@@ -24,6 +29,7 @@ pub async fn create_alert(
     .bind(&req.destination)
     .bind(req.target_price)
     .bind(&now)
+    .bind(&user.user_id)
     .execute(&state.pool)
     .await
     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
@@ -35,10 +41,12 @@ pub async fn create_alert(
 
 pub async fn list_alerts(
     State(state): State<AppState>,
+    user: AuthUser,
 ) -> Result<Json<Vec<Alert>>, (StatusCode, String)> {
     let alerts = sqlx::query_as::<_, Alert>(
-        "SELECT * FROM alerts ORDER BY created_at DESC"
+        "SELECT * FROM alerts WHERE user_id = ? ORDER BY created_at DESC",
     )
+    .bind(&user.user_id)
     .fetch_all(&state.pool)
     .await
     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
@@ -48,10 +56,12 @@ pub async fn list_alerts(
 
 pub async fn delete_alert(
     State(state): State<AppState>,
+    user: AuthUser,
     Path(id): Path<i64>,
 ) -> Result<StatusCode, (StatusCode, String)> {
-    let result = sqlx::query("DELETE FROM alerts WHERE id = ?")
+    let result = sqlx::query("DELETE FROM alerts WHERE id = ? AND user_id = ?")
         .bind(id)
+        .bind(&user.user_id)
         .execute(&state.pool)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;

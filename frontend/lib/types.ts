@@ -1,3 +1,8 @@
+export interface AuthResponse {
+  token: string;
+  email: string;
+}
+
 export type AlertStatus = "active" | "triggered" | "expired";
 
 export interface Alert {

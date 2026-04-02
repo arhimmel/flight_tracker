@@ -13,6 +13,8 @@ pub struct Alert {
     pub created_at: String,
     pub last_checked: Option<String>,
     pub notified_at: Option<String>,
+    #[serde(skip_serializing)]
+    pub user_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

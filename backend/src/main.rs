@@ -9,7 +9,9 @@ use tokio::sync::broadcast;
 use tower_http::cors::{Any, CorsLayer};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
+mod auth;
 mod db;
+mod email;
 mod models;
 mod poller;
 mod routes;
@@ -78,16 +80,21 @@ async fn main() -> anyhow::Result<()> {
 
     let state = AppState { pool, tx };
 
-    // CORS
+    // CORS — allow Authorization header so the frontend can send Bearer tokens
     let cors = CorsLayer::new()
         .allow_origin(Any)
         .allow_methods(Any)
         .allow_headers(Any);
 
     let app = Router::new()
+        // Auth (unauthenticated)
+        .route("/auth/request-otp", post(routes::auth::request_otp))
+        .route("/auth/verify-otp", post(routes::auth::verify_otp))
+        // Alerts (require Bearer token)
         .route("/alerts", post(routes::alerts::create_alert))
         .route("/alerts", get(routes::alerts::list_alerts))
         .route("/alerts/:id", delete(routes::alerts::delete_alert))
+        // SSE
         .route("/events", get(routes::sse::sse_handler))
         .layer(cors)
         .with_state(state);
